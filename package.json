@@ -1,9 +1,9 @@
 {
-  "name": "blackjack-multiplayer",
-  "version": "1.0.0",
+  "name": "blackjack-social-multiplayer",
+  "version": "2.0.0",
   "private": true,
-  "description": "Private-room real-time multiplayer blackjack, no real-money betting",
-  "scripts": { "start": "node server.js", "check": "node --check server.js" },
-  "engines": { "node": ">=20" },
-  "dependencies": { "express": "^4.21.2", "socket.io": "^4.8.1" }
+  "description": "Free-play multiplayer blackjack with accounts, bots, chat, friends and social lobby",
+  "engines": {"node": ">=20"},
+  "scripts": {"start": "node server.js", "check": "node --check server.js", "test": "node --test"},
+  "dependencies": {"express": "^4.21.2", "socket.io": "^4.8.1"}
 }
