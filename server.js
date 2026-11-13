@@ -5,12 +5,13 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { Server } = require('socket.io');
+const multi = require('./games');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 16_384 });
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('/health', (_req, res) => res.json({ ok: true, version: '2.0.0' }));
+app.get('/health', (_req, res) => res.json({ ok: true, version: '3.0.0' }));
 const CODES = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const MAX_PLAYERS = 6, WAGER = 20, STARTING_CHIPS = 1000;
 const FILE = process.env.DATA_FILE || path.join(__dirname, 'data', 'users.json');
@@ -57,18 +58,45 @@ function seat(u){return {id:u.id,name:u.username,bot:false,hand:[],status:'waiti
 function botSeat(r){const taken=new Set(r.players.map(p=>p.name));let i=1;while(taken.has('Bot '+i))i++;return {id:'bot-'+crypto.randomUUID(),name:'Bot '+i,bot:true,hand:[],status:'waiting',result:'',stake:0};}
 function sendSocial(uid) {const u=findUser(uid);if(!u)return;const sid=online.get(uid);if(!sid)return;io.to(sid).emit('social',{me:publicUser(u),requests:u.requests.map(id=>findUser(id)?.username).filter(Boolean),friends:u.friends.map(id=>({name:findUser(id)?.username,online:online.has(id)})).filter(x=>x.name),invitations:u.invites.slice(-15)});}
 function broadcastSocial() {for(const uid of online.keys())sendSocial(uid);}
-function lobbyData(){return [...rooms.values()].filter(r=>!r.private).map(r=>({code:r.code,host:findUser(r.host)?.username||'Host',count:r.players.length,phase:r.phase}));}
+function lobbyData(){return [...rooms.values()].filter(r=>!r.private).map(r=>({code:r.code,host:findUser(r.host)?.username||'Host',count:r.players.length,phase:r.phase,type:r.type||'blackjack'}));}
 function broadcastLobby(){io.emit('lobby',lobbyData());}
-function state(r){for(const p of r.players.filter(x=>!x.bot)){
+function state(r){if(r.type!=='blackjack')return multiState(r);for(const p of r.players.filter(x=>!x.bot)){
   const sid=online.get(p.id);if(!sid)continue;
   io.to(sid).emit('state',{
-    code:r.code,private:r.private,phase:r.phase,hostId:r.host,you:p.id,turnId:r.phase==='playing'?current(r)?.id:null,stake:WAGER,
+    code:r.code,type:'blackjack',private:r.private,phase:r.phase,hostId:r.host,you:p.id,turnId:r.phase==='playing'?current(r)?.id:null,stake:WAGER,
     dealer:{hand:r.phase==='finished'?r.dealer:(r.phase==='playing'?[r.dealer[0],null]:[]),total:r.phase==='finished'?value(r.dealer):null},
     players:r.players.map(x=>({id:x.id,name:x.name,bot:x.bot,hand:x.hand,total:x.hand.length?value(x.hand):null,status:x.status,result:x.result,stake:x.stake,connected:x.bot||online.has(x.id)})),
     chat:r.chat.slice(-40),myChips:findUser(p.id)?.chips||0
   });
 }}
-function resetLobby(r){r.phase='lobby';r.dealer=[];r.turn=0;for(const p of r.players){p.hand=[];p.result='';p.stake=0;p.status='waiting';}state(r);broadcastLobby();}
+function multiState(r){for(const p of r.players.filter(x=>!x.bot)){
+ const sid=online.get(p.id);if(!sid)continue;
+ io.to(sid).emit('state',{code:r.code,type:r.type,private:r.private,phase:r.phase,hostId:r.host,you:p.id,stake:WAGER,chat:r.chat.slice(-40),myChips:findUser(p.id)?.chips||0,...multi.seatState(r,p.id)});
+}}
+function settleMulti(r){if(r.settled||r.phase!=='finished')return;r.settled=true;
+ const humans=r.players.filter(p=>!p.bot),winners=humans.filter(p=>r.winners?.includes(p.id));
+ const pool=humans.length*WAGER;const each=winners.length?Math.floor(pool/winners.length):0;
+ for(const p of humans){const u=findUser(p.id);if(!u)continue;u.games++;
+  if(winners.includes(p)){u.wins++;u.chips+=each;}else u.losses++;sendSocial(u.id);
+ }
+ save();sendBoards();broadcastLobby();
+}
+function scheduleMultiBot(r){if(r.phase!=='playing'||!r.players[r.turn]||( !r.players[r.turn].bot && online.has(r.players[r.turn].id)))return;
+ const code=r.code,uid=r.players[r.turn].id;
+ setTimeout(()=>{const live=rooms.get(code);if(!live||live.type==='blackjack'||live.phase!=='playing'||live.players[live.turn]?.id!==uid||( !live.players[live.turn].bot && online.has(uid)))return;
+  try{const a=multi.botAction(live);if(a)multi.act(live,uid,a);if(live.phase==='finished')settleMulti(live);state(live);scheduleMultiBot(live);}catch(e){console.error('Bot error',e.message);}
+ },400);
+}
+function startMulti(r){if(r.phase==='playing')throw Error('Round already running.');
+ const t=multi.TYPES[r.type];if(r.players.length<t.min)throw Error('This game requires at least '+t.min+' players (bots are allowed).');
+ if(r.players.length>t.max)throw Error('Maximum '+t.max+' players for this game.');
+ const humans=r.players.filter(p=>!p.bot);if(humans.some(p=>findUser(p.id).chips<WAGER))throw Error('A player does not have enough chips.');
+ for(const p of humans){findUser(p.id).chips-=WAGER;sendSocial(p.id);}save();
+ r.settled=false;multi.start(r);
+ if(r.type==='hearts'){const first=r.players.findIndex(p=>p.hand.some(c=>c.suit==='♣'&&c.rank==='2'));r.turn=first;}
+ state(r);broadcastLobby();scheduleMultiBot(r);
+}
+function resetLobby(r){r.phase='lobby';r.dealer=[];r.turn=0;r.stage='';r.result='';for(const p of r.players){p.hand=[];p.result='';p.stake=0;p.status='waiting';}state(r);broadcastLobby();}
 function settle(r) {
   r.phase='finished';
   if(r.players.some(p=>p.status!=='bust'&&!natural(p.hand)))while(value(r.dealer)<17)r.dealer.push(draw(r));
@@ -102,6 +130,7 @@ function scheduleBot(r){if(r.phase!=='playing'||!current(r)?.bot)return;
   },650);
 }
 function start(r){
+  if(r.type!=='blackjack')return startMulti(r);
   if(r.phase==='playing')throw Error('Round already running.');
   const humans=r.players.filter(p=>!p.bot);if(humans.length<1||r.players.length<2)throw Error('Add a friend or a bot first.');
   if(humans.some(p=>findUser(p.id).chips<WAGER))throw Error('A player does not have enough virtual chips.');
@@ -117,6 +146,7 @@ function leave(socket) {
   const code=socket.data.room;if(!code)return;delete socket.data.room;socket.leave(code);
   const r=rooms.get(code);if(!r)return;
   const idx=r.players.findIndex(p=>p.id===socket.data.uid);if(idx<0)return;
+  if(r.phase==='playing'&&r.type!=='blackjack'){state(r);scheduleMultiBot(r);broadcastLobby();return;}
   if(r.phase==='playing'){
     // Disconnecting mid-round counts as standing. Settlement remains valid and stake cannot disappear.
     const p=r.players[idx];if(p.status==='playing')p.status='stood';
@@ -135,7 +165,7 @@ function attach(socket,r,u){
     if(r.phase!=='playing'&&r.phase!=='finished')throw Error('Already in this room.');
   }else{
     if(r.phase==='playing')throw Error('Round in progress. Join after this round.');
-    if(r.players.length>=MAX_PLAYERS)throw Error('Room is full.');
+    if(r.players.length>=(multi.TYPES[r.type]?.max||MAX_PLAYERS))throw Error('Room is full.');
     r.players.push(seat(u));
     if(r.phase==='finished')resetLobby(r);
   }
@@ -145,7 +175,7 @@ function leaderboard(){return database.users.map(u=>({username:u.username,wins:u
 function sendBoards(){io.emit('leaderboard',leaderboard());}
 
 io.on('connection',socket=>{
-  socket.emit('lobby',lobbyData());socket.emit('leaderboard',leaderboard());
+  socket.emit('lobby',lobbyData());socket.emit('leaderboard',leaderboard());socket.emit('gameTypes',multi.TYPES);
   socket.on('register',({username,password}={},ack)=>run(ack,()=>{
     loginThrottle(socket);username=clean(username,20);
     if(!/^[a-zA-Z0-9_]{3,20}$/.test(username))throw Error('Username must be 3–20 letters, digits or underscores.');
@@ -168,9 +198,10 @@ io.on('connection',socket=>{
     const r=[...rooms.values()].find(x=>x.players.some(p=>p.id===uid));if(r){socket.data.room=r.code;socket.join(r.code);state(r);}
   }));
   socket.on('logout',(_payload,ack)=>run(ack,()=>{leave(socket);const uid=socket.data.uid;for(const [token,id] of sessions)if(id===uid)sessions.delete(token);if(online.get(uid)===socket.id)online.delete(uid);delete socket.data.uid;broadcastSocial();reply(ack,{ok:true});}));
-  socket.on('create',({private:priv=true}={},ack)=>run(ack,()=>{
+  socket.on('create',({private:priv=true,type='blackjack'}={},ack)=>run(ack,()=>{
     const u=needUser(socket);if(socket.data.room)throw Error('Leave your current room first.');
-    const code=makeCode(),r={code,host:u.id,private:!!priv,players:[seat(u)],phase:'lobby',turn:0,dealer:[],deck:[],chat:[]};
+    if(typeof type!=='string'||!multi.TYPES[type])throw Error('Unknown card game.');
+    const code=makeCode(),r={code,type,host:u.id,private:!!priv,players:[seat(u)],phase:'lobby',turn:0,dealer:[],deck:[],chat:[]};
     rooms.set(code,r);socket.data.room=code;socket.join(code);reply(ack,{ok:true,code});state(r);broadcastLobby();
   }));
   socket.on('join',({code}={},ack)=>run(ack,()=>{
@@ -181,7 +212,7 @@ io.on('connection',socket=>{
   socket.on('addBot',(_payload,ack)=>run(ack,()=>{
     const u=needUser(socket),r=roomOf(socket);ensureHost(r,u);
     if(r.phase==='playing')throw Error('Wait for the round to finish.');
-    if(r.players.length>=MAX_PLAYERS)throw Error('Room full.');
+    if(r.players.length>=(multi.TYPES[r.type]?.max||MAX_PLAYERS))throw Error('Room full.');
     r.players.push(botSeat(r));resetLobby(r);reply(ack,{ok:true});
   }));
   socket.on('removeBots',(_payload,ack)=>run(ack,()=>{
@@ -192,12 +223,18 @@ io.on('connection',socket=>{
   socket.on('start',(_payload,ack)=>run(ack,()=>{const u=needUser(socket),r=roomOf(socket);ensureHost(r,u);start(r);reply(ack,{ok:true});}));
   socket.on('move',(action,ack)=>run(ack,()=>{
     const u=needUser(socket),r=roomOf(socket);
+    if(r.type!=='blackjack')throw Error('Use game action for this table.');
     if(r.phase!=='playing')throw Error('No round in progress.');
     const p=current(r);if(!p||p.id!==u.id||p.status!=='playing')throw Error('Not your turn.');
     if(action==='hit'){
       p.hand.push(draw(r));if(value(p.hand)>=21){p.status=value(p.hand)>21?'bust':'stood';r.turn++;progress(r);}else state(r);
     }else if(action==='stand'){p.status='stood';r.turn++;progress(r);}else throw Error('Invalid action.');
     reply(ack,{ok:true});if(r.phase==='finished')sendBoards();
+  }));
+  socket.on('gameAction',(action,ack)=>run(ack,()=>{
+    const u=needUser(socket),r=roomOf(socket);if(r.type==='blackjack')throw Error('Use Hit or Stand.');
+    multi.act(r,u.id,action);if(r.phase==='finished')settleMulti(r);
+    state(r);broadcastLobby();scheduleMultiBot(r);reply(ack,{ok:true});
   }));
   socket.on('chat',(message,ack)=>run(ack,()=>{
     const u=needUser(socket),r=roomOf(socket),text=clean(message,240);

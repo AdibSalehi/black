@@ -1,45 +1,69 @@
-# Blackjack Social v2
+# NOIR CLUB — Multiplayer Card Casino v3
 
-A free-play multiplayer Blackjack site using Node.js, Express and Socket.IO. Includes accounts, public/private room lobby, virtual play chips, room chat, friends, invitations, basic CSS card animations, a leaderboard and basic dealer-strategy bots. No real-money gameplay.
+A **social free-play** 7-game website built on the existing Blackjack Social v2 project. This package includes accounts, public/private lobby, room codes, friend requests/invitations, live room chat, computer opponents, animated cards, wins leaderboard, and virtual (non-redeemable) chips.
+
+## Games and rule variants
+
+| Game | Players | Rules in this release |
+|---|---:|---|
+| Blackjack | 2–6 | Original working Blackjack engine; dealer stands on soft 17; Hit/Stand |
+| Texas Hold'em | 2–6 | **Simplified**: 2 private cards, 5 community cards shown immediately, one **Check / Fold** decision per player, evaluated poker hand showdown. **No betting rounds, raises, blinds or side pots.** |
+| Color Match | 2–6 | Match number/color or draw; first to finish wins. Similar general matching mechanism to classic card-shedding games; no brand assets or special action cards. |
+| Hearts | exactly 4 | Follow suit, 2♣ lead, hearts can't be led until broken, hearts = 1 point and Q♠ = 13. Lowest penalty wins. **No passing or shooting the moon.** |
+| Rummy | 2–6 | Draw/discard; declare an 8-card hand only when completely partitionable into 3+ card same-rank sets or suit-consecutive runs. After 120 turns, lower card-sum wins. **Casual variant.** |
+| Teen Patti | 2–6 | Three cards, **Stay / Fold** then showdown. No real betting or blind/seen rounds. |
+| Durak | 2–6 | **Streamlined one-attack/one-defense rounds** using a 36-card deck and trump suit; defender beats attack or takes it. Not the full traditional multi-attack rule set. |
+
+All rounds use **20 free-play chips per human**. The pool is split among human winners. A bot victory is a house win. There is no purchasing, cash-out, crypto, or transfer functionality.
 
 ## Run locally
 
-1. Install Node.js 20+.
-2. From this directory run `npm install` and then `npm start`.
-3. Open http://localhost:3000.
-4. Register two different accounts in two browsers, or create a room and click **+ Bot**.
-5. Enter a room, use **Deal**, then **Hit** / **Stand**.
+Install Node.js 20+.
 
-## Updating the existing GitHub repository
+```bash
+npm install
+npm start
+```
 
-**Back up your working `main` branch first.** Create a new branch named `v2-social`. Upload these files to the repository root (not into an extra outer folder), replacing the existing files; preserve `public/index.html` inside the public folder. Commit to the test branch. Configure a *separate* Render Web Service tracking that branch to test before merging to `main`.
+Open http://localhost:3000. Register two different accounts in separate browser profiles or tabs, or create a room and add bots.
 
-- Language: Node
-- Build: `npm install`
-- Start: `npm start`
-- Root directory: blank if `server.js` and `package.json` are at the repository root
-- Health check path: `/health`
+Check test engine:
 
-The existing Render `main` deployment can stay untouched while the new service is tested. Once tested, merge `v2-social` into `main` to update your existing site.
+```bash
+npm test
+```
 
-## Important operational limitations
+## Deploy to GitHub and Render
 
-- **Prototype accounts**: password hashes are made with scrypt and unique salts; the session tokens live in server memory and are stored in browser localStorage. Logging in again is required after server restarts. For a production service, use secure HttpOnly cookies, CSRF protections where applicable, audited auth, abuse controls, and password recovery.
-- **Data persistence**: user records (including passwords hashes, chips, friend data and stats) are written to `data/users.json` by default. This is suitable for local testing or a server with persistent storage, **not Render's free ephemeral filesystem**. On Render's free tier, accounts, chips and leaderboards can disappear after a restart or deployment. For real lasting accounts, migrate data to a managed database (e.g. Postgres) or use an appropriately persistent disk on a paid deployment.
-- **Single process only**: rooms, chat and login sessions live in Node memory. Do not deploy multiple replicas; scaling needs shared storage and the Socket.IO adapter.
-- **Room disconnects**: if a player disconnects during a round, their hand automatically stands and settles; their seat stays through the round so chips are not lost. Rooms do not survive a server restart.
-- **Chips are fictional**: each human starts with 1,000 play-only chips. Every round stakes 20 play chips per human. A win returns 40, a natural blackjack returns 50, a push returns 20, and a loss returns 0. Bots neither earn nor spend chips. There is no payment, transfer, purchase or cash-out function. There is no automatic chip replenishment.
-- **Gameplay rules**: simplified Blackjack: one hand per player, two shuffled decks, dealer stands on soft 17, no split, insurance, surrender or doubling. Accounts with fewer than 20 chips cannot start a round.
-- **Friends**: send a request using the exact username; accept the request; then use the room's friend list to invite. Private rooms require the room code or invitation.
-- For public deployment, add privacy policy, reporting/moderation and stronger abuse prevention before inviting strangers.
+**Strong recommendation: test on a separate Render service/branch before replacing your currently working site.**
 
-## File layout
+1. Extract the ZIP. Upload **contents of the `blackjack-casino-v3` folder** into the GitHub repository `AdibSalehi/black` on a new branch named `v3-noir-club`. Keep `server.js`, `games.js`, `package.json`, and `public/index.html` at their shown relative paths.
+2. Render Dashboard → New → Web Service → Connect repository `AdibSalehi/black` → select branch `v3-noir-club`.
+3. Language: Node. Root Directory: blank, assuming package.json at repo root. Build: `npm install`. Start: `npm start`. Health check path: `/health`.
+4. Deploy and open the **new Render test URL**. Test both actual devices and bot rounds; check that every game appears, rooms can be joined, a round resolves, friends/invites/chat work, and score/balance changes. 
+5. Only after successful testing, merge `v3-noir-club` into `main`, so your existing Render service deploys the update. Consider keeping a `backup-v2` Git branch before merging.
 
-- `server.js` — authoritative game rules and Socket.IO events
-- `public/index.html` — responsive lobby, chat and Blackjack interface
-- `data/users.json` — generated at runtime, excluded from Git
-- `package.json` — scripts and dependencies
+## Important limitations before public use
 
-## Checks
+- `data/users.json` is a **local file**; Render free service filesystems are ephemeral. Accounts, password hashes, friends and leaderboard can disappear across restart/deploy. Use a persistent database (PostgreSQL) before inviting long-term users. Do not rely on this storage for valuable data.
+- Session tokens are held **in RAM** and do not persist across service restarts. Players will have to sign in again.
+- Rooms and active game rounds live **in RAM**; a restart empties rooms and ends active games.
+- This is an educational/social MVP, **not a production-hardened gaming service**. Before public launch, add persistent database, stronger authentication and session security, chat moderation, account recovery, privacy policy, request/socket rate limits, tests, and monitoring.
+- Game rules are **not full tournament-standard implementations**, particularly Texas Hold'em, Teen Patti and Durak. Treat them as casual social variants. The website says this.
+- No currency payment functionality or real-money gambling is supported.
 
-Run `npm run check` to check server syntax. `/health` should return `{"ok":true,"version":"2.0.0"}`.
+## Project files
+
+- `server.js`: Node/Express/Socket.IO multiplayer, auth/social, original Blackjack, game routing.
+- `games.js`: server-authoritative six new card-game engines.
+- `public/index.html`: responsive premium dark theme + seven-game selector and game controls.
+- `test-games.js`: automated engine simulation tests.
+- `package.json`: launch and dependency config.
+
+## Troubleshooting
+
+- `Cannot GET /`: check that `public/index.html` is uploaded in `public/` and Render's Root Directory is correct.
+- New games missing: check that **games.js** is at repository root and the correct branch is deployed.
+- `Cannot find module`: run `npm install` / check the Render build log.
+- Accounts disappeared: free Render filesystem is temporary; migrate to PostgreSQL.
+- In multiplayer games, make sure participants use different signed-in accounts and can connect over Socket.IO.
