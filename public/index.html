@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BLACKJACK — Private Table</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#f5f8f6;background:#091b19}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 36%,#21684d 0%,#0c302a 45%,#071916 100%)}button,input{font:inherit}button{cursor:pointer;border:0;border-radius:12px;padding:12px 18px;font-weight:700;background:#e6c37c;color:#173026}button:hover:enabled{filter:brightness(1.08)}button:disabled{opacity:.4;cursor:not-allowed}.secondary{background:#194d42;color:#effaf5;border:1px solid #4d8b76}.danger{background:#542e32;color:#fff}.wrap{max-width:1040px;margin:0 auto;padding:24px}header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}.logo{font-size:25px;font-weight:900;letter-spacing:.12em}.logo span{color:#e6c37c}.tag{font-size:12px;color:#b7d1c7;letter-spacing:.12em}.panel{border:1px solid #5c98816b;border-radius:22px;background:#0a2827bd;padding:26px;box-shadow:0 24px 80px #0004}.intro{max-width:510px;margin:8vh auto}.intro h1{font-size:40px;margin:12px 0}.intro p{color:#b5cec6;line-height:1.5}label{display:block;margin:14px 0 6px;font-size:13px;color:#b5cec6;font-weight:700}input{width:100%;padding:13px;border:1px solid #508978;background:#0c2624;border-radius:10px;color:white;outline:none;text-transform:none}input:focus{border-color:#e6c37c}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}.actions button{flex:1;min-width:120px}.hide{display:none!important}.tablebar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:12px}.code{font-size:26px;font-weight:900;letter-spacing:.12em;color:#e6c37c}.muted{color:#a6c5b9;font-size:13px}.table{background:radial-gradient(ellipse at center,#227d5c,#15523e 65%,#0d3c30);border:12px solid #193b32;box-shadow:inset 0 0 0 2px #b58b56,0 24px 55px #0008;border-radius:48% / 20%;min-height:455px;padding:38px 25px;display:flex;flex-direction:column;justify-content:space-between;gap:35px;text-align:center}.dealer{min-height:130px}.label{font-size:12px;font-weight:900;letter-spacing:.18em;color:#d2e7dc;text-transform:uppercase;margin-bottom:12px}.hands{display:flex;flex-wrap:wrap;gap:22px;justify-content:center;align-items:flex-start}.handbox{background:#05281e85;border:1px solid #86c1a657;border-radius:15px;padding:11px;min-width:165px;max-width:250px}.handbox.active{outline:3px solid #efd08b}.handbox.self{border-color:#e6c37c}.cards{display:flex;justify-content:center;min-height:87px}.card{width:56px;height:83px;margin-left:-8px;flex-shrink:0;background:#fffdf7;color:#1a2621;border-radius:8px;border:1px solid #c9c7c0;box-shadow:0 3px 9px #0005;display:flex;flex-direction:column;justify-content:space-between;padding:5px;font-weight:900;font-size:18px}.card:first-child{margin-left:0}.card.red{color:#c93443}.card .suit{font-size:29px;align-self:center;line-height:1}.card.back{color:#e6c37c;background:repeating-linear-gradient(45deg,#173d48,#173d48 6px,#275b64 6px,#275b64 12px);justify-content:center;font-size:29px}.info{font-size:12px;color:#c0dace;margin-top:10px}.message{font-size:16px;text-align:center;padding:14px;color:#f1d390;font-weight:700;min-height:50px}#error{color:#ffb9a9;min-height:22px;margin-top:10px}.controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:16px 0}.pill{display:inline-block;border:1px solid #6eac91;border-radius:30px;padding:6px 13px;color:#bfdfcf;font-size:12px}.footer{font-size:12px;color:#90b4a6;text-align:center;margin-top:20px}@media(max-width:650px){.wrap{padding:12px}.intro{margin:5vh auto}.intro h1{font-size:32px}.panel{padding:20px}.table{border-width:7px;border-radius:44px;min-height:390px;padding:26px 8px}.hands{gap:8px}.handbox{min-width:135px;padding:9px}.card{width:45px;height:68px;font-size:15px}.card .suit{font-size:22px}.code{font-size:20px}}
+</style></head>
+<body><main class="wrap"><header><div><div class="logo">BLACK<span>JACK</span></div><div class="tag">LIVE PRIVATE TABLES</div></div><span class="pill" id="connection">Connecting…</span></header>
+<section class="panel intro" id="entry"><h1>Play with friends.</h1><p>Create a private table, share its 6-character code, and play Blackjack together in real time — for fun, with no money or betting.</p><label for="name">Your display name</label><input id="name" maxlength="22" placeholder="Enter your name" autocomplete="nickname"><label for="roomcode">Room code (only to join)</label><input id="roomcode" maxlength="6" placeholder="e.g. Q7B2KF" style="text-transform:uppercase" autocomplete="off"><div class="actions"><button id="create">Create a room</button><button class="secondary" id="join">Join a room</button></div><div id="entryError" style="color:#ffb9a9;margin-top:10px" role="alert"></div></section>
+<section id="game" class="hide"><div class="tablebar panel"><div><div class="muted">PRIVATE ROOM CODE</div><div class="code" id="code">------</div><div class="muted" id="status">Waiting for players</div></div><div class="actions" style="margin:0"><button id="copy" class="secondary">Copy invite link</button><button id="leave" class="danger">Leave</button></div></div><div class="table"><div class="dealer"><div class="label">Dealer <span id="dealerTotal"></span></div><div id="dealerCards" class="cards"></div></div><div><div class="label">Players</div><div class="hands" id="players"></div></div></div><div class="message" id="message"></div><div class="controls"><button id="start">Deal cards / Next round</button><button id="hit">Hit — draw a card</button><button id="stand" class="secondary">Stand — keep hand</button></div><div id="error" style="text-align:center" role="alert"></div></section><div class="footer">Two shuffled decks · Dealer stands on soft 17 · Blackjack beats ordinary 21 · No bets · 2–6 players</div></main>
+<script src="/socket.io/socket.io.js"></script><script>
+'use strict';
+const socket = io();
+const el = id => document.getElementById(id);
+let state = null;
+const storedName = sessionStorage.getItem('bjName'); if(storedName) el('name').value=storedName;
+const inviteCode = new URLSearchParams(location.search).get('room'); if(inviteCode) el('roomcode').value = inviteCode.toUpperCase();
+function error(text){el(state?'error':'entryError').textContent=text;}
+function send(event, payload){error('');socket.emit(event,payload,res=>{if(!res?.ok){error(res?.error||'Unexpected error');return;}if(res.code)history.replaceState(null,'','?room='+res.code);});}
+el('create').onclick=()=>{sessionStorage.setItem('bjName',el('name').value.trim());send('create',el('name').value);};
+el('join').onclick=()=>{sessionStorage.setItem('bjName',el('name').value.trim());send('join',{name:el('name').value,code:el('roomcode').value});};
+el('start').onclick=()=>send('start',null);
+el('hit').onclick=()=>send('move','hit');
+el('stand').onclick=()=>send('move','stand');
+el('leave').onclick=()=>{socket.emit('leave',null,()=>{state=null;history.replaceState(null,'',location.pathname);render();});};
+el('copy').onclick=async()=>{const link=location.origin+'/?room='+state.code;try{await navigator.clipboard.writeText(link);el('copy').textContent='Copied!';setTimeout(()=>el('copy').textContent='Copy invite link',1700)}catch(e){prompt('Copy this invite link:',link)}};
+socket.on('connect',()=>{el('connection').textContent='● Connected';if(state){state=null;history.replaceState(null,'',location.pathname);render();error('Connection restored. Rejoin the room with its code.');}});
+socket.on('disconnect',()=>{el('connection').textContent='● Disconnected';});
+socket.on('state',data=>{state=data;render();});
+function cardHTML(c){if(!c)return '<div class="card back">♠</div>';return '<div class="card '+('♥♦'.includes(c.suit)?'red':'')+'"><span>'+c.rank+'</span><span class="suit">'+c.suit+'</span><span style="align-self:end">'+c.rank+'</span></div>';}
+function handHTML(cards){return cards?.length?cards.map(cardHTML).join(''):'';}
+function safe(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function render(){
+ el('entry').classList.toggle('hide',!!state);el('game').classList.toggle('hide',!state);if(!state)return;
+ el('code').textContent=state.code;
+ const you=state.players.find(p=>p.id===state.you);const host=state.hostId===state.you;
+ const myTurn=state.phase==='playing'&&state.turnId===state.you;
+ el('status').textContent=state.players.length+' / 6 players · '+(state.phase==='lobby'?'Waiting to start':state.phase==='playing'?'Round in progress':'Round finished');
+ el('dealerTotal').textContent=state.dealer.total===null?'':'— '+state.dealer.total;
+ el('dealerCards').innerHTML=handHTML(state.dealer.hand);
+ el('players').innerHTML=state.players.map(p=>'<div class="handbox '+(p.id===state.you?'self ':'')+(state.turnId===p.id?'active':'')+'"><div style="font-weight:750;margin-bottom:9px">'+safe(p.name)+(p.id===state.you?' (You)':'')+'</div><div class="cards">'+handHTML(p.hand)+'</div><div class="info">'+(p.total===null?'Waiting':p.total+' points')+' · '+(p.result||p.status)+' · '+p.wins+' wins</div></div>').join('');
+ el('start').classList.toggle('hide',!host || state.phase==='playing');el('start').disabled=state.players.length<2;
+ el('start').textContent=state.phase==='finished'?'Deal next round':'Start game';
+ el('hit').classList.toggle('hide',state.phase!=='playing');el('stand').classList.toggle('hide',state.phase!=='playing');
+ el('hit').disabled=!myTurn;el('stand').disabled=!myTurn;
+ let message='';
+ if(state.phase==='lobby')message=host?(state.players.length<2?'Share your invite link with a friend to start.':'Ready! Click Start game.'):'Waiting for the host to start.';
+ else if(state.phase==='playing'){const active=state.players.find(p=>p.id===state.turnId);message=myTurn?'Your turn: Hit or Stand.':(active?active.name+"'s turn.":'Dealer is playing…');}
+ else message='Round over! '+(you?.result?'Your result: '+you.result+'. ':'')+(host?'Start the next round when ready.':'Waiting for the host.');
+ el('message').textContent=message;
+}
+render();
+</script></body></html>
