@@ -202,7 +202,7 @@ io.on('connection',socket=>{
     const u=needUser(socket);if(socket.data.room)throw Error('Leave your current room first.');
     if(typeof type!=='string'||!multi.TYPES[type])throw Error('Unknown card game.');
     const code=makeCode(),r={code,type,host:u.id,private:!!priv,players:[seat(u)],phase:'lobby',turn:0,dealer:[],deck:[],chat:[]};
-    rooms.set(code,r);socket.data.room=code;socket.join(code);reply(ack,{ok:true,code});state(r);broadcastLobby();
+    rooms.set(code,r);socket.data.room=code;socket.join(code);state(r);broadcastLobby();reply(ack,{ok:true,code});
   }));
   socket.on('join',({code}={},ack)=>run(ack,()=>{
     const u=needUser(socket);const r=rooms.get(clean(code,6).toUpperCase());if(!r)throw Error('Room not found.');
