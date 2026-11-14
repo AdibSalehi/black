@@ -1,45 +1,72 @@
-# Blackjack Social v2
+# NOIR CLUB v3.2.0 — Premium social card club
 
-A free-play multiplayer Blackjack site using Node.js, Express and Socket.IO. Includes accounts, public/private room lobby, virtual play chips, room chat, friends, invitations, basic CSS card animations, a leaderboard and basic dealer-strategy bots. No real-money gameplay.
+This release improves the card-table experience with server-timed dealing, a host-controlled deal-speed setting, animated cards, Blackjack split/double-down options, and sequential Texas Hold’em streets. It preserves the existing Node.js + Socket.IO project structure.
+
+## What changed
+
+### Realistic dealing and animation
+- Blackjack deals one card at a time in round-robin order: each player receives a card, the dealer receives the up-card, then the second player cards and dealer hole card are dealt.
+- The dealer hole card remains hidden until the dealer phase. Dealer draws are also revealed one card at a time.
+- Texas Hold’em deals each private hole card one at a time. The flop is revealed card-by-card, followed by a separate turn card and river card. A burn card is removed before each community-card street.
+- New cards animate from the table/deck area. The UI respects the operating system's `prefers-reduced-motion` preference.
+- Room hosts can choose **Fast (300 ms)**, **Realistic (520 ms)**, or **Cinematic (850 ms)** dealing speed.
+
+### Blackjack rules
+- Added **Split** for matching-value pairs, up to four hands, provided the player has enough free-play chips for the additional stake.
+- Split hands are dealt one card each in sequence. Split aces receive one card each and then stand. A 21 on a split hand is not treated as a natural Blackjack.
+- Added **Double down** on eligible two-card hands: the player adds an equal stake, receives exactly one card, then stands.
+- Natural Blackjack pays 3:2 in virtual chips; regular wins pay 1:1 profit; pushes return the stake. Dealer stands on soft 17.
+- Split and double-down stakes are deducted from the player's non-redeemable chip balance.
+
+### Texas Hold’em scope
+- Hole cards, flop, turn and river now arrive in distinct server-controlled stages rather than all at once.
+- This release still uses the existing **casual check/fold** decision model; it does **not** yet implement blinds, calls, raises, all-ins, side pots, or full betting rounds. It should not be described as a complete tournament-standard Texas Hold’em client.
+
+### Social-play and legal safeguards
+- Registration requires a self-confirmation of age 18+ and acceptance of the current Social Play Terms. Existing accounts must accept the updated terms on their next login. The service records the confirmation timestamp and terms version.
+- Added `/terms.html` with a Social Play Terms and Privacy Notice.
+- Chips are fictional and non-redeemable. No chip purchases, withdrawals, transfers, crypto, cash prizes, or valuable prizes are implemented. Do not add these without a separate legal review and appropriate licensing/compliance work.
+- The terms explicitly say users must not access the service where prohibited.
+- This is **not a guarantee of legal compliance in every jurisdiction**. Online games, simulated gambling, age restrictions, privacy and consumer rules vary by location. The operator must obtain local legal advice, add a real privacy contact, and configure access before public launch.
+
+## Files
+
+- `server.js` — Express/Socket.IO server, room state, timed dealing, Blackjack actions and registration checks.
+- `games.js` — shared non-Blackjack game engines and staged Texas Hold’em street dealing.
+- `public/index.html` — premium dark UI, animation, Split/Double buttons and deal-speed selector.
+- `public/terms.html` — Social Play Terms and Privacy Notice.
+- `test-games.js` — game simulations and staged Texas Hold’em dealing tests.
+- `package.json` — scripts and dependencies.
 
 ## Run locally
 
-1. Install Node.js 20+.
-2. From this directory run `npm install` and then `npm start`.
-3. Open http://localhost:3000.
-4. Register two different accounts in two browsers, or create a room and click **+ Bot**.
-5. Enter a room, use **Deal**, then **Hit** / **Stand**.
+Requires Node.js 20 or newer.
 
-## Updating the existing GitHub repository
+```bash
+npm install
+npm test
+npm start
+```
 
-**Back up your working `main` branch first.** Create a new branch named `v2-social`. Upload these files to the repository root (not into an extra outer folder), replacing the existing files; preserve `public/index.html` inside the public folder. Commit to the test branch. Configure a *separate* Render Web Service tracking that branch to test before merging to `main`.
+Open `http://localhost:3000`. Use separate browser profiles/accounts to test multiplayer. The `npm test` command checks game-engine simulations and verifies that Texas Hold’em reveals hole cards, flop, turn and river in stages. The test suite does not replace a live Socket.IO browser test of account flows, split-hand actions, and reconnect behavior.
 
-- Language: Node
-- Build: `npm install`
-- Start: `npm start`
-- Root directory: blank if `server.js` and `package.json` are at the repository root
-- Health check path: `/health`
+## Deploy safely to Render
 
-The existing Render `main` deployment can stay untouched while the new service is tested. Once tested, merge `v2-social` into `main` to update your existing site.
+1. Keep your currently working deployment untouched. Create a new GitHub branch from the current deployed v3 branch, e.g. `v3.2-staged-deal`.
+2. Upload the **contents** of this project folder into the repository root, preserving `public/index.html` and `public/terms.html`. Replace `server.js`, `games.js`, `package.json`, and `test-games.js`.
+3. Create a separate Render Web Service from that branch. Use Node, build command `npm install`, start command `npm start`, root directory blank if `package.json` is at repository root, health check `/health`.
+4. Confirm `/health` returns `{"ok":true,"version":"3.2.0"}`. Test Blackjack dealing, a pair split, double down, dealer reveal, Texas hole cards, flop, turn and river, bots, and two actual browser sessions.
+5. Only after successful testing should you merge the branch into the branch used by your original Render service.
 
-## Important operational limitations
+## Important hosting and security limitations
 
-- **Prototype accounts**: password hashes are made with scrypt and unique salts; the session tokens live in server memory and are stored in browser localStorage. Logging in again is required after server restarts. For a production service, use secure HttpOnly cookies, CSRF protections where applicable, audited auth, abuse controls, and password recovery.
-- **Data persistence**: user records (including passwords hashes, chips, friend data and stats) are written to `data/users.json` by default. This is suitable for local testing or a server with persistent storage, **not Render's free ephemeral filesystem**. On Render's free tier, accounts, chips and leaderboards can disappear after a restart or deployment. For real lasting accounts, migrate data to a managed database (e.g. Postgres) or use an appropriately persistent disk on a paid deployment.
-- **Single process only**: rooms, chat and login sessions live in Node memory. Do not deploy multiple replicas; scaling needs shared storage and the Socket.IO adapter.
-- **Room disconnects**: if a player disconnects during a round, their hand automatically stands and settles; their seat stays through the round so chips are not lost. Rooms do not survive a server restart.
-- **Chips are fictional**: each human starts with 1,000 play-only chips. Every round stakes 20 play chips per human. A win returns 40, a natural blackjack returns 50, a push returns 20, and a loss returns 0. Bots neither earn nor spend chips. There is no payment, transfer, purchase or cash-out function. There is no automatic chip replenishment.
-- **Gameplay rules**: simplified Blackjack: one hand per player, two shuffled decks, dealer stands on soft 17, no split, insurance, surrender or doubling. Accounts with fewer than 20 chips cannot start a round.
-- **Friends**: send a request using the exact username; accept the request; then use the room's friend list to invite. Private rooms require the room code or invitation.
-- For public deployment, add privacy policy, reporting/moderation and stronger abuse prevention before inviting strangers.
+- User records are still stored in a local JSON file. Render's ephemeral filesystem can lose that file on restart/redeploy. Use managed PostgreSQL and backups before a public launch.
+- Sessions and active rooms are held in RAM. Restarting the service signs users out and ends active rooms.
+- The MVP does not yet include email verification, password reset, full moderation/reporting, robust account deletion/export, persistent sessions, database-backed audit logs, or professional security review.
+- Do not store sensitive personal information. Do not reuse passwords from other services.
+- The age confirmation is self-declared and is not identity verification.
+- Terms and Privacy Notice currently have no operator contact because one has not been supplied; add a real contact and implement user data rights before public launch.
 
-## File layout
+## Current rules limitations
 
-- `server.js` — authoritative game rules and Socket.IO events
-- `public/index.html` — responsive lobby, chat and Blackjack interface
-- `data/users.json` — generated at runtime, excluded from Git
-- `package.json` — scripts and dependencies
-
-## Checks
-
-Run `npm run check` to check server syntax. `/health` should return `{"ok":true,"version":"2.0.0"}`.
+Texas Hold’em is still check/fold only. Teen Patti, Rummy, Hearts and Durak remain simplified casual variants as described in the prior release. Blackjack now supports split and double-down, but does not yet include insurance, surrender, configurable table rules, or a full multi-deck shoe cut-card procedure.

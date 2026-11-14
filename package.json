@@ -1,9 +1,9 @@
 {
-  "name": "blackjack-social-multiplayer",
-  "version": "2.0.0",
+  "name": "noir-club-social-card-games",
+  "version": "3.2.0",
   "private": true,
-  "description": "Free-play multiplayer blackjack with accounts, bots, chat, friends and social lobby",
+  "description": "Social free-play card games with staged dealing, Blackjack split/double, accounts, bots and premium dark UI",
   "engines": {"node": ">=20"},
-  "scripts": {"start": "node server.js", "check": "node --check server.js", "test": "node --test"},
+  "scripts": {"start": "node server.js", "check": "node --check server.js", "test": "node --test test-games.js"},
   "dependencies": {"express": "^4.21.2", "socket.io": "^4.8.1"}
 }
